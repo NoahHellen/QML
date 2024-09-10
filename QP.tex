@@ -1,0 +1,475 @@
+\documentclass[twocolumn,superscriptaddress]{revtex4-1}
+\setlength{\parskip}{10pt}
+\usepackage{amsfonts, amssymb, amsmath, float, enumerate, hyperref, tikz, pgfplots, graphicx, amsthm, thmtools, bm, times, dcolumn, xcolor, soul, enumitem, footnote, physics, hyperref}
+\usepackage[a4paper, left=1.85cm, right=1.85cm,top=1.85cm, bottom=1.85cm]{geometry}
+\declaretheorem[numbered=no]{definition}
+\newcommand{\mh}[1]{ { \color{red} (MH: {#1}) }}
+\parindent 0px
+
+\bibliographystyle{cmpj}
+
+\begin{document}
+\title{Quantum perceptron: the basis of quantum neural networks}
+\author{Noah Hellen}
+\date{\today}
+
+\begin{abstract}
+
+Quantum neural networks (QNNs) have been proposed as a novel computing paradigm, rooted in the domain of quantum computing. QNNs draw inspiration from artificial neural networks (ANNs), their classical equivalent. Theoretical advances in the study of variational quantum algorithms (VQAs) underpin the modern understanding and design of QNNs. In this paper, we will cover the quantum perceptron, a promising candidate under the umbrella of VQAs, which could be the building block for more sophisticated QNNs. Specifically, the paper will address the quantum circuit and variational algorithm used in designing the quantum perceptron. A quantum perceptron implementing four qubits will be discussed, serving as a practical demonstration of the proposal. Moreover, the learning capabilities of the quantum perceptron will be covered. In particular, a quantum perceptron using two qubits will be shown to effectively recognise patterns in data. The paper will conclude by covering how an efficient learning rule and continuously-valued data can be used to improve the model.
+
+\end{abstract}
+
+\maketitle
+
+\section{Introduction} \label{introduction}
+
+Artificial neural networks gained prominence in the 20th Century for their ability to recognise structures in data sets. The structure of ANNs model the brain in abstract, with individual components designed as highly simplified neurons. 
+
+Feed-forward neural networks (FFNNs) served as the first architecture capable of performing the underlying capabilities of ANNs. Several other architectures, notably recurrent neural networks (RNNs) and Boltzmann machines, further expanded their capabilities.
+
+The success of ANNs, paired with the advent of quantum computing in the 1990s, spurred activity and engagement in an exciting confluence of the two fields, aptly known as quantum neural networks. Quantum computing utilises uniquely quantum phenomena to solve certain problems faster than possible through classical techniques, and forms the framework from which QNNs are built. The publication of \cite{KAK1995143} by S. Kak marked the beginning of the ongoing research into this field.
+
+The advent of Noisy Intermediate-Scale Quantum (NISQ) devices has made experimental realisation of QNNs possible \cite{Beer:2022wgv}. Demand for new computational paradigms due to the slowdown of the phenomenon described in Moore's law \cite{8123662, Shalf2020}, and ever-increasing computational requirements \cite{PERALGARCIA2024100619} provides additional motivation for research in this field.
+
+Following the publication of \cite{KAK1995143}, the proposals for designing QNNs largely focused on quantum circuit modelling and the quantum perceptron \cite{Schuld_2014, 9137960}, which closely mirrors the current research. These proposals were not complete, and encountered challenges largely in the transition from the classical to quantum regime. In particular, non-linearity failed to be addressed properly due to the linear dynamics of quantum computing \cite{Schuld_2014}.
+
+While there is not yet a unified proposal for QNNs, the main strand of research that represents the current state of the field is that of variational quantum algorithms. VQAs are a class of hybrid quantum-classical algorithms, consisting of a combination of parameterised quantum circuits and classical optimisation methods \cite{mangini2023variational}. They are seen as a leading strategy for quantum advantage in several applications, of which QNNs are a subclass \cite{Cerezo_2021}. Several QNN architectures derived from their classical equivalents have been proposed, relying heavily on this model \cite{PERALGARCIA2024100619}.
+
+Current research has amended the flaws of initial proposals but has been faced with several new challenges. The barren plateau (vanishing gradient) phenomenon presents scalability problems, where the gradient of the loss function vanishes exponentially in input size \cite{zhao2021review, Clean_2018}. Hardware noise on NISQ devices also leads to this phenomenon \cite{Wang_2021, Cerezo_2021}. Non-convexity of the cost function landscape of VQAs also poses a problem for scalability, whereby sub-optimal local minima are found via backpropagation \cite{riveradean2021avoiding}. Attempts to reconcile these scalability problems have been proposed, such as dampening the barren plateau effect with layer-wise learning \cite{Skolik_2021}.
+
+Classical neural networks are derived from a single artificial neuron. A promising approach for research is to borrow this intuition for constructing QNNs using the theoretical groundwork of VQAs. In contrast to the classical case, simple implementation of non-linear activation functions is not possible in the linear dynamics of the quantum regime. The perceptron is a classical artificial neuron, distinct in its use of sign or binary step function as its activation function (see Fig.~\ref{fig:Activation}). The quantum equivalent of this design has therefore been studied, and has become a mature field of study \cite{Tacchino_2019}, informing current research in developing QNNs \cite{Tacchino_2020}.
+
+This work will provide an in depth proposal for the design of the quantum perceptron, drawing from the work spearheaded by Tacchino and Mangini, as well as the necessary requisite material. Firstly, sections \ref{artificial}, \ref{networks}, \ref{learning}, and \ref{perceptronsection} will describe the classical background in ANNs that QNNs draw from. Next, the necessary understanding of quantum computing will be covered in section \ref{computing}. The focus of this paper will cover the precise design of the quantum perceptron in section \ref{quantum perceptron}, as well as providing an example of its learning capabilities.
+
+\section{Artificial neuron} \label{artificial}
+McCulloch and Pitts were the first to propose the idea of a mathematical abstraction of biological neural networks \cite{McCulloch1943-MCCALC-5}. The design of the McCulloch-Pitts neuron emerged from their work, and it has served as the foundation for contemporary neural networks. After several revisions to this model, it was understood that connecting these artificial neurons in a network could drastically increase computational power and ability \cite{Basheer2001}.
+
+An artificial neuron is designed to accept an input vector $\bm{x} \in \mathbb{R}^n$ to produce a single output $y \in [0, 1]$, which is termed as the activation of the neuron. We also assign a weight vector $\bm{w} \in \mathbb{R}^n$ to our input vector. An additional bias $b \in \mathbb{R}$ is assigned to the neuron. The weight vector and bias, as will be explained in section \ref{learning}, are important for learning. In order to produce the desired output $y$, each neuron is equipped with an activation function $\kappa$, defined as 
+
+\begin{equation} \label{eq:neuron_math}
+\begin{split}
+y = \kappa(z) = \kappa \left(\sum_i w_i x_i + b\right).
+\end{split}
+\end{equation}
+
+A pictorial representation of an artificial neuron is shown in Fig.~\ref{fig:neuron}.
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Neuron.png}
+\caption{Abstract model of an artificial neuron, producing an activation $y$ from an input vector $\bm{x}$ \cite{Beer:2022wgv}.}
+\label{fig:neuron}
+\end{figure}
+
+The choice of activation function $\kappa$ is crucial for effective ANNs. Activation functions determine the degree to which an artificial neuron is activated, and hence the degree to which an input is considered relevant. Modern neural networks typically use the sigmoid function (Fig.~\ref{fig:Activation}), because it is more suitable in learning tasks when compared with others \cite{nielsenneural}. The activation functions described in (Fig.~\ref{fig:Activation}) possess unique properties, which are exploited in different ANNs. The Rectified Linear Unit (ReLU), for example, is an activation function most commonly used in convolutional neural networks (CNNs) and restricted Bolztmann Machines, and has also shown to solve the problem of vanishing gradients in deep neural networks \cite{7966185}.
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Activation.png}
+\caption{A selection of activation functions most typically used in modern ANNs \cite{Beer:2022wgv}.}
+\label{fig:Activation}
+\end{figure}
+
+\section{Artificial neural networks} \label{networks}
+
+Understanding the architectures and problem categories of modern ANNs is necessary to properly inform the design of QNNs. Feed-forward neural networks (FFNNs) were the first multi-layer networks constructed after the advent of the artificial neuron, and exhibit the simplest design \cite{Beer:2022wgv}. Such networks consist of $L + 2$ layers of interconnected neurons, occupying so-called input, hidden and output layers, representing the direction of propagation. Every neuron in the network has its own weight vector and bias in accordance with Eq.~\ref{eq:neuron_math}. Neurons occupying hidden and output layers receive the outputs of the previous layer. The degree of connectivity between neurons is problem-dependent. A representation of FFNNs is shown in Fig.~\ref{fig:FFNN}.
+
+Numerous other architectures have been designed since the advent of FFNNs, since the components and design of ANNs are inherently variable. This has led to ANNs becoming versatile in a number of problem categories. Preliminary models were restricted to linear classification tasks, though contemporary models are now capable of cluster analysis, forecasting, and image generation to name a few \cite{Basheer2001}.
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{FFNN.png}
+\caption{A schematic representation of a feed-forward neural network, with circles representing neurons and arrows the connections between them. The number of hidden layers in the network is denoted with $L$ \cite{Beer:2022wgv}.}
+\label{fig:FFNN}
+\end{figure}
+
+\section{Learning} \label{learning}
+ANNs owe their utility in their ability to recognise patterns and structures in data - they are able to learn from data. Modern ANNs are capable of supervised, unsupervised and reinforcement learning \cite{nielsenneural}. In supervised learning, each input $\bm{x}$ has an associated target value $t \in \mathbb{R}$, and the model is concerned with learning the input-output map. Unsupervised learning aims to find patterns in data without such intervention. Reinforcement learning is a framework in which a system learns by interacting with an environment or data. The models considered in this paper are trained solely by supervised learning, and so the discussion will be restricted to problems of this nature. 
+
+Consider a data set $\{\bm{x}^{(1)}, \bm{x}^{(2)}, \cdots, \bm{x}^{(s)}\} \cup \{ \bm{x}^{({s+1})}, \cdots , \bm{x}^{(m)} \}$ that we wish to assign a pattern to. In supervised learning, a subset of these data points $\{\bm{x}^{(1)}, \bm{x}^{(2)}, \cdots, \bm{x}^{(s)}\}$ must be designated as \textit{training data}, with an associated target value ${t^{(j)}}$ for $j \in [1, s]$. We describe the remaining data points $\{\bm{x}^{({s+1})}, \cdots, \bm{x}^{(m)}\}$ as \textit{unseen} data, used only for validation \cite{Beer:2022wgv}. It is then precisely the task to find the optimal solution of the input-output mapping. In the case of ANNs, this is achieved through the use of variable parameters and a learning rule.
+
+The variable parameters have previously been described as weight vectors in Eq.~\ref{eq:neuron_math}, and are varied in the training process. The learning rule is described as minimising a certain cost function (see Eq.~\ref{eq:cost})  associated with the ANN, with the aim of finding the ideal set of weight vectors and biases. This learning rule is robust, and is suitable for arbitrary network depth and complexity.
+
+Upon initialisation, an ANN is coupled with a random set of weight vectors and biases for which it is tasked with finding the optimal values. Given an input vector $\bm{x}^{(j)}$ in the training data, each iteration of the network will produce an output $y^{(j)}$, with which we compare to its target value $t^{(j)}$. It is assumed for simplicity that the output layer (see Fig.~\ref{fig:FFNN}) contains one neuron, and $L=0$. The loss function $\mathcal{L}(y^{(j)}, t^{(j)})$ is defined as
+\begin{equation} \label{eq:loss}
+\begin{split}
+\mathcal{L}(y^{(j)}, t^{(j)}) = \frac{1}{2} (y^{(j)} - t^{(j)})^2,
+\end{split}
+\end{equation}
+and quantifies the difference between these values \cite{Roger2018}. We use the mean squared error (MSE) for our loss function, although viable alternatives exist \cite{Beer:2022wgv}. 
+
+By averaging across all training examples $\{\bm{x}^{(1)}, \bm{x}^{(2)}, \cdots, \bm{x}^{(s)}\}$, we define the cost function as
+
+\begin{equation} \label{eq:cost}
+\begin{split}
+\mathcal{E} (w_1, \cdots, w_n, b) = \frac{1}{s} \sum_{j=1}^s \mathcal{L} (y^{(j)}, t^{(j)}).
+\end{split}
+\end{equation}
+
+By minimising this cost function, we extract the optimal values for weights and biases. This minimisation is achieved through gradient descent, in which the global minimum of the cost function is found. In practice, cost functions may be non-convex, and exhibit multiple local minima, resulting in a sub-optimal set of parameters.
+
+Gradient descent informs us in which direction we must move in the cost function landscape to find our optimal parameters. A schematic diagram representing the process of gradient descent is demonstrated in Fig.~\ref{fig:Cost}. By identifying the gradient of the cost function, the parameters ${\bm{w}}$ and $b$ can be adjusted in the direction of this gradient \cite{Beer:2022wgv, Ahmed2015}. The learning rate $\eta \in [0, 1]$ controls the speed of iteration, and hence allows the gradient descent learning rule to be fully defined:
+\begin{equation} \label{eq:gradient}
+\begin{split}
+w_i &\leftarrow w_i - \eta \nabla_{w_i} \mathcal{E} \\
+b &\leftarrow b - \eta \nabla_b \mathcal{E}.
+\end{split}
+\end{equation}
+
+This learning rule is iterated until convergence such that the optimal parameters are found, and the learning task has been achieved. Computing these gradients practically is achieved by an algorithm known as backpropagation, of which a rigorous derivation is provided in \cite{nielsenneural}.
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Cost.png}
+\caption{Cost function landscape with $\bm{w} \in \mathbb{R}^2$. The green arrow represents the iterative process of gradient descent to locate the global minimum, and green sphere the current iteration \cite{nielsenneural}.}
+\label{fig:Cost}
+\end{figure}
+
+\section{Perceptron} \label{perceptronsection}
+
+The quantum perceptron is the focus of this paper, necessitating a comprehensive understanding of its classical equivalent. As such, we will restrict our discussion of multi-layered ANNs to the special case of the perceptron. The perceptron was formulated in 1958 by Frank Rosenblatt. As discussed in the Introduction \ref{introduction}, the perceptron is an ANN with $L=0$, acting with a binary step function (see Fig.~\ref{fig:Activation}). The learning rule associated with the perceptron can be derived from the gradient descent method in Eq.~\ref{eq:gradient}. We first restrict the training to update parameters with a single example at a time: a process known as stochastic gradient descent \cite{Ahmed2015}. By considering each weight co-ordinate separately $w_i$ for $i \in [1,n]$, and one input $\bm{x}^{(j)}$ at a time, we are able to define the perceptron learning rule:
+\begin{equation} \label{eq:perceptron}
+\begin{split}
+w_i \leftarrow w_i - \eta (y^{(j)} - t^{(j)}).
+\end{split}
+\end{equation}
+
+As a simple example demonstrating the learning ability of a perceptron, consider the boolean AND operator \cite{Roger2018}. The input-output mapping of this operator is shown in Table~\ref{tab:and}. The perceptron will be tasked with correctly classifying these data points, creating two separate classes depending on their target values. A graphical representation is provided in Fig.~\ref{fig:And} by plotting the input values in $\mathbb{R}^2$. The optimal weights and bias found by iterated use of Eq.~\ref{eq:perceptron} are represented by the separating hyperplane shown in Fig.~\ref{fig:And}.
+
+\begin{table}
+\caption{\label{tab:and} Input-output mapping of boolean AND operator.}
+\begin{ruledtabular}
+\begin{tabular}{|c|c|c|}
+\hline
+$x_1$ & $x_2$ & t \\ \hline
+0 & 0 & 0 \\ \hline
+0 & 1 & 0 \\ \hline
+1 & 0 & 0 \\ \hline
+1 & 1 & 1 \\ \hline
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{And.png}
+\caption{Graphical representation of a perceptron classifying the boolean AND operator. See Table~\ref{tab:and} for data points plotted. Blue circles represent $t=0$ and red $t=1$.}
+\label{fig:And}
+\end{figure}
+
+\section{Quantum computing} \label{computing}
+
+Quantum computing promises to utilise uniquely quantum phenomena to perform computations. Both quantum and classical computational regimes borrow from the same binary set $\{0, 1 \}$ to represent information. The linearity of solutions allowed in the quantum regime distinguishes information as being represented as qubits. The qubit is a two-dimensional quantum system, such that an arbitrary pure state can be represented as
+\begin{equation} \label{eq:qubit1}
+\begin{split}
+|\psi \rangle = a |0 \rangle + b |1 \rangle,
+\end{split}
+\end{equation}
+with $a, b \in \mathbb{C}$ and normalised such that $|a|^2 + |b|^2 = 1$. By noting the normalisation condition, the qubit can be parameterised in terms of $0 \leq \theta \leq \pi$ and $0 \leq \phi \leq 2\pi$, and is instead written in the form
+\begin{equation} \label{eq:qubit2}
+\begin{split}
+|\psi \rangle = \text{cos}\left(\frac{\theta}{2}\right) |0 \rangle + e^{i \phi} \text{sin}\left(\frac{\theta}{2}\right)|1 \rangle.
+\end{split}
+\end{equation}
+Therefore, a pure qubit state is described as points on the sphere $S^2$, which is called the Bloch sphere \cite{Inaki2024}. Mixed qubit states are described as points inside the Bloch sphere. A diagram of the Bloch sphere is shown in Fig.~\ref{fig:Bloch}. Qubits will also be described as members of the Hilbert space $\mathcal{H} = \mathbb{C}^2$. 
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Bloch.png}
+\caption{Arbitrary qubit states can be represented as points on the surface and inside the Bloch sphere \cite{Beer:2022wgv}.}
+\label{fig:Bloch}
+\end{figure}
+
+Meaningful computational power requires longer representations of information. This is achieved classically by bit concatenation, forming strings of bits. In quantum systems, we achieve this result by use of the tensor product. A system of $N$ coupled qubits inhabits a $2^N$-dimensional Hilbert space $\mathcal{H} = \mathbb{C}^{2^N}$. This system is described by
+\begin{equation} \label{eq:tensor}
+\begin{split}
+| q_{N-1} \rangle \otimes \cdots \otimes |q_1 \rangle \otimes |q_0 \rangle = |q_{N-1} \cdots q_1 q_0 \rangle .
+\end{split}
+\end{equation}
+
+We describe the span of the Hilbert space $\mathcal{H} = \mathbb{C}^{2^N}$ as the computational basis.
+
+Classically, logic gates are required to manipulate information. In the quantum regime, we require quantum gates. Quantum gates are unitary operators $U$, and in the single-qubit case, can be viewed as rotations in the Bloch sphere. It is common to describe quantum gates as $N \times N$ matrices acting on $N$ qubits. Universal quantum computation states that any quantum algorithm can be decomposed into a finite set of quantum gates \cite{Inaki2024}. This is a useful result in the context of QNNs and the quantum perceptron, where complex unitaries $U$ are prevalent. The quantum gates useful in the discussion of the quantum perceptron are shown in Fig.~\ref{fig:Gates}.
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Gates.png}
+\caption{A selection of single-qubit and multi-qubit quantum gates, with their corresponding matrices \cite{wiki}.}
+\label{fig:Gates}
+\end{figure}
+
+The quantum circuit model of quantum computing is similar to the classical case, providing a visual representation of quantum computation and the order of operation. The quantum circuit model includes auxiliary qubits, denoted as \textit{ancillary} qubits. These qubits are initialised in a well-defined state and independent from the input. Ancillary qubits are used to store results from the circuit, and will be of importance in the circuit model of the quantum perceptron. We will also briefly recap notational subtleties in quantum circuit diagrams to avoid confusion in the next section.
+
+A string of length $n$ of classical bits is represented as $v = v_{n-1} v_{n-2} \cdots v_0$. This notation is the same for $N$ qubits, that are represented as $|q_{N-1} \rangle | q_{N-2} \rangle \cdots |q_0 \rangle$. On a quantum circuit diagram, qubits will be ordered as in Fig.~\ref{fig:Circuit}.
+
+We will also briefly cover another notational subtlety, which is used for efficiently describing qubit states. Qubit states will be described using their corresponding bit string. For example, the qubit state $|1011 \rangle$ will be written as $|11 \rangle$, since $1011$ in binary is equivalent to $11$.
+
+\begin{figure}[t!]
+\includegraphics[width=0.5\columnwidth]{Circuit.png}
+\caption{Quantum circuit diagram with $N = 4$ qubits, demonstrating ordering of qubits in a quantum circuit. Image obtained and edited from \cite{Inaki2024}.}
+\label{fig:Circuit}
+\end{figure}
+
+\section{Quantum perceptron} \label{quantum perceptron}
+
+This section will provide an in depth proposal for the quantum perceptron, as well as its proficiency in learning tasks such as pattern recognition. The article \cite{Tacchino_2019} by Tacchino and other authors is the primary source for the design of the quantum perceptron covered in this paper. In this model, the components of input and weight vectors are restricted to binary values $\{-1, 1\}$ as in the case of the McCulloch-Pitts neuron. Moreover, the bias has been excluded for simplicity.
+
+The overall goal of a quantum perceptron is no different than in the classical case. Given an input set $\{\bm{x}^{(1)}, \bm{x}^{(2)}, \cdots, \bm{x}^{(s)}\} \cup \{ \bm{x}^{({s+1})}, \cdots , \bm{x}^{(m)} \}$  of training and unseen data with $\bm{x}^{(j)} \in {\{-1, 1\}}^n$, we wish to find the weight vector $\bm{w} \in {\{-1, 1\}}^n$ that satisfies the training criteria. In this discussion, we will only consider training data.
+
+As noted in section \ref{introduction}, the activation function of a classical perceptron is the binary step function, with $0$ and $1$ representing de-activated and activated perceptrons respectively. The equivalent activation function of the quantum perceptron will be represented as the qubit states $|0 \rangle$ and $| 1 \rangle$. The key difference, however, is that the quantum perceptron finds a quadratic probability of activation. As such, non-linearity, a stringent requirement for developing mature QNNs, will be achieved.
+
+To replicate the structure of a perceptron as in Fig.~\ref{fig:neuron} , the quantum perceptron will aim to compute the inner product between $\bm{x}^{(j)}$ and $\bm{w}$. This will be used to define the activation of the perceptron. The design of the quantum algorithm and circuit for this is the focus of \ref{qpcircuit}. Varying this circuit to be able to include all weight and input vectors will be the focus of \ref{varmodel}. Completion of these tasks will fully define the quantum perceptron.
+ 
+The task of a well-defined learning rule as explained in \ref{learning} for the classical case will be discussed in the final section \ref{conclusion}, highlighting the motivation and scope for future research.
+
+We first define how to represent classical data in the quantum regime. This is achieved by encoding the input and weight vectors as coefficients on the quantum states $ |{\psi}_{x^{(j)}} \rangle$ and $ |{\psi}_w \rangle$, defined as: 
+
+\begin{equation} \label{eq:inputweight}
+\begin{split}
+|{\psi}_{x^{(j)}} \rangle = \frac{1}{\sqrt{n}} \sum_{i=0}^{n-1} x^{(j)}_i |i \rangle ; \hspace{10pt} |{\psi}_w \rangle = \frac{1}{\sqrt{n}} \sum_{i=0}^{n-1} w_i |i \rangle .
+\end{split}
+\end{equation}
+
+The variable $x^{(j)}_i $ in this definition signifies that we are iterating through the $i$ components of an arbitrary $n$-dimensional input vector $\bm{x}^{(j)}$ of the input set. The states $|i \rangle$ form the computational basis of the $n$-dimensional Hilbert space. Therefore, we must use $N$ qubits in the computation, such that $2^N = n$. It is now the task of computing the scalar product between these states, and finding the respective activation, by designing a specialised quantum circuit of $N$ qubits.
+
+\subsection{Quantum circuit design} \label{qpcircuit}
+
+We prepare the system with $N$ qubits each in the state $|0 \rangle$, and a single ancillary qubit $|a \rangle$ also initialised in the state $|0 \rangle$. The first step in the algorithm is to design the $U_x$ operator, which encodes $ |{\psi}_{x^{(j)}} \rangle$ into the circuit. This is achieved by first entangling the $N$ qubits with $H^{\otimes N}$ (see Fig.~\ref{fig:Perceptroncircuit4} for an example with $N=4$). This creates a superposition of the computational basis states in the $n$-dimensional Hilbert space, allowing for maximal encoding of input and weight vectors. This is described by 
+\begin{equation} \label{eq:compbasis}
+\begin{split}
+H^{\otimes N} |0 \rangle ^{\otimes N} = \frac{1}{\sqrt{n}} \sum_{i=0}^{n-1} |i \rangle \equiv | \psi_0 \rangle .
+\end{split}
+\end{equation}
+
+Next, a set of $Z$ and $C^pZ$ gates form the rest of $U_x$, where $p$ is the number of qubits the gate acts on. The design and variability of these gates is precisely the aim of next section \ref{varmodel}. This step creates the state $| {\psi}_{x^{(j)}} \rangle $ defined in Eq.~\ref{eq:inputweight} above. The combination of $Z$, $C^pZ$ and $H^{\otimes N}$ gates define $U_x$, and its operation can be neatly defined as 
+\begin{equation} \label{eq:firstunitary}
+\begin{split}
+U_x |0 \rangle ^{\otimes N} = | {\psi}_{x^{(j)}} \rangle .
+\end{split}
+\end{equation}
+
+The next stage of the algorithm imprints $| \psi_w \rangle$ onto $| {\psi}_{x^{(j)}} \rangle$ with the unitary $U_w$. The required variability of $U_w$ will also be fully defined in the next section \ref{varmodel}. For the moment, we can effectively define the action of $U_w$ as the unitary rotating $|\psi _w \rangle$ as
+
+\begin{equation} \label{eq:weightunitary}
+\begin{split}
+U_w |\psi _w \rangle = |1 \rangle ^{\otimes N} = |m-1 \rangle.
+\end{split}
+\end{equation}
+
+This definition is to provide a description of the form of $U_w$, as opposed to its action in the circuit. The action of $U_w$ in the quantum circuit is to operate on $| {\psi}_{x^{(j)}} \rangle$. This first imprints $|\psi _w \rangle$ on to $| {\psi}_{x^{(j)}} \rangle$, before applying $H^{\otimes N}$ and $NOT^{\otimes N}$ gates. The resulting state is
+
+\begin{equation} \label{eq:secondunitary}
+\begin{split}
+U_w | \psi_{x^{(j)}} \rangle = \sum_{i=0}^{n-1} c_i |i \rangle \equiv |\phi_{x^{(j)},w} \rangle,
+\end{split}
+\end{equation}
+
+such that the scalar product is contained in the $c_{n-1}$ coefficient of the state $|\phi_{x^{(j)},w} \rangle$. We now aim to extract this information, by first considering the ancillary qubit $|a \rangle = |0 \rangle$ with $|\phi_{x^{(j)},w} \rangle$ (i.e. $|\phi_{x^{(j)},w} \rangle \otimes |0 \rangle$) . We apply a $C^N NOT$ gate, which affects only the state $|1 \cdots 1  \rangle \otimes |0 \rangle$, creating the state $|1 \cdots 1 \rangle \otimes |1 \rangle$. The full effect of this gate is described as
+
+\begin{equation} \label{eq:ancillary}
+\begin{split}
+C^NNOT|\phi_{x^{(j)},w} \rangle \otimes |0 \rangle = \sum_{i=0}^{n-2} c_i |i \rangle \otimes {|0 \rangle} + c_{n-1} |n-1 \rangle \otimes {|1\rangle} .
+\end{split}
+\end{equation}
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{Perceptroncircuit.png}
+\caption{Quantum circuit diagram of the quantum perceptron. The system is first initialised with $N$ qubits. Next, the unitary operators $U_x$ and $U_w$ encode the input and weight vectors onto the quantum state. Finally, a $C^NNOT$ gate translates the desired result onto an ancillary qubit, which is measured to determine the activation of the quantum perceptron. The author uses different notation: $U_i$ instead of $U_x$ and $i_j$ instead of $x^{(j)}_i$\cite{Tacchino_2019}.}
+\label{fig:Perceptroncircuit}
+\end{figure}
+
+Measurement of the ancillary qubit reveals the probability $|c_{n-1}|^2$ that it is in the state $|1 \rangle$. This corresponds to the probability of the quantum perceptron being activated. As a result of the activation function being quadratic, we achieve the requirement of non-linearity. 
+
+We briefly compare the standard scalar product between input and weight vectors with the effect of $U_w$. The unitary $U_w$ can be summarised as the scalar product between $|\psi _{x^{(j)}} \rangle$ and $|\psi _w \rangle$, as defined in
+
+\begin{equation} \label{eq:innerproduct}
+\begin{split}
+\langle \psi_w | \psi _{x^{(j)}} \rangle = \langle \psi_w | U_w^{\dagger} U_w | \psi _{x^{(j)}} \rangle = \langle n - 1 |\phi_{x^{(j)},w} \rangle = c_{n-1}.
+\end{split}
+\end{equation}
+
+Comparing Eq.~\ref{eq:innerproduct} with the standard scalar product between $\bm{x}^{(j)}$ and $\bm{w}$, such that $ \bm{x}^{(j)} \cdot \bm{w} = nc_{n-1}$, we find equivalence up to an overall normalisation factor. The point of divergence between classical and quantum perceptron models is defining an activation function with this scalar product. This can be seen when comparing the activation function of Fig.~\ref{fig:neuron} with measurement of ancillary qubit in Fig.~\ref{fig:Perceptroncircuit}.
+
+A pictorial representation of the quantum circuit design is shown in Fig.~\ref{fig:Perceptroncircuit}.
+
+\subsection{Variational model} \label{varmodel}
+
+As it currently stands, we have defined an architecture for the quantum perceptron. However, the current quantum circuit is static in its ability to accept different inputs and weights. It is therefore necessary to define an algorithm for this purpose.
+
+The algorithm designed to vary $U_x$ and $U_w$ is termed the hypergraph states generation subroutine (HSGS), due to the structure of the quantum gates implemented in the algorithm corresponding to an underlying hypergraph \cite{Rossi_2013}. 
+
+In practical terms, we first choose a pair of input and weight vectors $\bm{x}^{(j)}$ and $\bm{w}$ to encode into the circuit. The HSGS procedure modifies the number and arrangement of $Z$ and $C^pZ$ gates in the quantum circuit, corresponding to the pair of vectors chosen. 
+
+This procedure follows an iterative approach, targeting each component of $\bm{x}^{(j)}$ and $\bm{w}$ with a $-1$ factor. Components with a $+1$ are not targeted. For a circuit of $N$ qubits, we reiterate that $p$ is the number of qubits involved in the gate. The first states to check are the ones with only one qubit in the state $|1 \rangle$, for example the state $|10 \cdots 0 \rangle$. If the coefficient of corresponding state is $-1$, a $Z$ gate is applied to that qubit. For $p = 2, \cdots, N$, this procedure is once again iterated using $C^pZ$ gates for the components of $\bm{w}$ and $\bm{x}_j$ requiring a $-1$ factor. Previous iterations may affect other states. For example, if both $|10 \cdots 0 \rangle$ and $|11 \cdots 0 \rangle$ require a $-1$ factor, the Z gate applied to $|10 \cdots 0 \rangle$ will also affect $|11 \cdots 0 \rangle$. This can be reconciled by applying the $C^2Z$ (or $C^pZ$ for the general case) gate twice. This procedure is carried out until all states have the required coefficients $\{-1, 1\}$.
+
+The HSGS procedure is therefore able to vary the quantum circuit to include all possible input and weight vectors. A case study where $N=4$ is shown in Fig.~\ref{fig:Perceptroncircuit4}. An explicit proof demonstrating that the design of the circuit in Fig.~\ref{fig:Perceptroncircuit4} is correct is found in Appendix \ref{app:proof}.
+
+It is noted that the state $|0 \cdots 0 \rangle$ is unaffected by the $Z$ and $C^pZ$ gates. This is a problem if the corresponding vector component required, $x^{(j)}_0$ or $w_0$, is $-1$. The resolution of this issue, involving the $X^{\otimes N}$ gate, is demonstrated in the example provided in Appendix \ref{app:proof}.
+
+\begin{figure*}[t!]
+\includegraphics[width=1.5\columnwidth]{Perceptroncircuit4.png}
+\caption{Quantum circuit of an $N=4$ quantum perceptron. The weight vector has components $w_2 = w_3 = w_4 = -1$ and $+1$ for all other components. The input vector has components $x^{(j)}_0 = x^{(j)}_1 = -1$ and $+1$ for all other components. The implementation of $Z$ and $C^pZ$ gates are a direct result of the HSGS procedure. Black vertical lines with black circles represent $C^pZ$ gates, with the number of black circles corresponding to the $p$ qubits involved. The author uses different notation: $U_i$ instead of $U_x$ \cite{Tacchino_2019}.}
+\label{fig:Perceptroncircuit4}
+\end{figure*}
+
+\subsection{Pattern recognition} \label{pattern}
+
+We have now defined the quantum perceptron. In light of the learning capabilities of the classical perceptron in section ~\ref{learning}, the learning capabilities of the quantum perceptron will be demonstrated. 
+
+As noted at the beginning of this section, an efficient learning algorithm for the quantum perceptron is not the purpose of this paper. Therefore, we will consider low-dimensional vectors, such that the optimal weight vector(s) can be found by inspection. The learning task this section focuses on will be pattern recognition.
+
+We first consider an efficient encoding scheme. The quantum perceptron model we have described accepts binary valued input and weight vectors. Therefore, we will use a string of bits of length $n$ to define a set of weight and input vectors. Consider the binary string $v_{input} = v_{weight} = v_{n-1} v_{n-2} \cdots v_0$. We can encode inputs and weight vectors such that $x^{(j)}_i = (-1)^{v_i}$ and $w_i = (-1)^{v_i}$ for $i \in [0, n-1]$. 
+
+Using the binary string, we can also represent input and weight vectors as monochromatic images, also known as binary images. This will provide a visual representation of input and weight vectors. The quantum perceptron will therefore act to find the similarities in images. As such, we assign $v_i = 0(1)$ to a white (black) pixel.
+
+We will focus on the case of $N=2$ qubits, or equivalently, a bit string of length $n=4$. The binary images for a selection of bit strings is shown in Fig.~\ref{fig:Pixel}. We will choose $v_{input} = 1001 = 9 $ and $v_{weight} = 1100 = 12$, and determine if the $v_{weight}$ can capture the pattern of $v_{input}$, based on the activation of the quantum perceptron. Using the encoding scheme, we translate these binary strings into vectors
+\begin{equation} \label{eq:stringvector}
+\begin{aligned}
+\bm{w} &= 
+\begin{pmatrix}
+1 \\
+1 \\
+-1 \\
+-1 \\
+\end{pmatrix}
+& ; \hspace{10pt}
+\bm{x} &= 
+\begin{pmatrix}
+-1 \\
+1 \\
+1 \\
+-1 \\
+\end{pmatrix},
+\end{aligned}
+\end{equation}
+
+where we drop the notation $\bm{x}_j$ since we only consider one input vector in this example. We can immediately see that the scalar product between these two vectors is $0$, and so the perceptron activation is $0$. The corresponding quantum perceptron circuit can be derived using the HSGS procedure. Therefore, the quantum perceptron effectively recognises that these two patterns (see Fig.~\ref{fig:Pixel}) are not compatible. It can be found (see Fig.~\ref{fig:N2compare}) that the optimal weight vectors for recognising the pattern of $v_{input} = 1001 = 9 $ are $v_{weight} = 1001 = 9 $ and $v_{weight} = 0110 = 6 $, due to the high activation of the quantum perceptron. 
+
+An example of the quantum circuit for the quantum perceptron utilising the HSGS procedure is shown in Fig.~\ref{fig:N2circuit} for $v_{input} = 11 $ and $v_{weight} = 7$.
+
+\begin{figure}[t!]
+\includegraphics[width=0.5\columnwidth]{Pixel.png}
+\caption{Binary images for a bit string of length $n=4$. White squares correspond to the bit 0, and black to the bit 1 \cite{Tacchino_2019}. The patterns for $9$ and $6$ are incorrect. Swapping these patterns provides the correction.}
+\label{fig:Pixel}
+\end{figure}
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{N2circuit.png}
+\caption{Quantum perceptron circuit for implementing the bit strings $v_{input} = 11$ and $v_{weight} = 7$. The author orders $|q_0 \rangle$ above $|q_1 \rangle$, while this paper order them contrariwise. Note that the circuit is still correct, although to match the format of this paper, $|q_0 \rangle$ should be flipped with $|q_1 \rangle $ and the first $Z$ gate moved to the top wire \cite{Tacchino_2019}.}
+\label{fig:N2circuit}
+\end{figure}
+
+\begin{figure*}[t!]
+\includegraphics[width=1.8\columnwidth]{N2compare.png}
+\caption{Quantum perceptron activation for $N=2$ qubits, demonstrated in different settings. The axis $k_i$ and $k_w$ represent the binary strings of length $n=4$. The leftmost represents the ideal outcome of computing the scalar product between input and weight vectors, simulated on a classical computer. The rightmost represents the HSGS procedure. The middle represents a less optimal procedure, and has thus not been covered. The author uses different notation: $i_j$ instead of $x^{(j)}_i$, $k_i$ instead of $v_{input}$, and $k_w$ instead of $v_{weight}$\cite{Tacchino_2019}.}
+\label{fig:N2compare}
+\end{figure*}
+
+\begin{figure}[t!]
+\includegraphics[width=0.99\columnwidth]{N4weight.png}
+\caption{Quantum perceptron circuit with $N=4$ qubits. The decimal numbers represent the quantum perceptron activation of the input binary images when paired with the weight $\bm{w}$, here represented as a binary image. Inverse images receive high activation due to the quantum perceptron activation being quadratic \cite{Tacchino_2019}.}
+\label{fig:N4weight}
+\end{figure}
+
+Scaling this system to even $N = 4$ is computational demanding, as there are $2^{32}$ possible combinations of input and weight vectors. However, an example of pattern recognition for $N=4$ qubits is provided in Fig.~\ref{fig:N4weight}. This therefore necessitates a learning rule, as will be discussed in the next section, to avoid iterating through all input and weight vectors.
+
+\section{Conclusion and outlook} \label{conclusion}
+
+This paper has provided a comprehensive description of the design of the quantum perceptron, while first setting out the purpose and requisite material necessary for its study. In particular, the proposed design takes direct inspiration from the classical equivalent, and reproduces comparable results with higher computational efficiency. Achieving this required firstly a general quantum circuit capable of both computing the inner product between weight and input vectors, as well as providing a suitable means of reproducing the activation function as in the classical case. The scalar product was simply realised by the unitaries $U_x$ and $U_w$, and activation through measurement of an ancillary qubit. Implementation of the HSGS procedure provided the model with a means of varying $U_x$ and $U_w$, effectively allowing for all input and weight vectors to be encoded. This model of the quantum perceptron is capable of pattern recognition tasks. This was demonstrated by the use of input binary images, with higher activation for images closer to the chosen weight binary image. 
+
+Since the release of \cite{Tacchino_2019} in 2019, the authors and other researchers have sought to improve this model. The proposed model is restricted to binary input and weight vectors. While this is useful for simplifying the model, it is restrictive in the number of problems it is able to solve. Moreover, there is a lack of a learning rule to find the optimal weight vector to satisfy the learning criteria. They have therefore worked to replace the binary input and weight vectors with continuously-valued vectors. This will allow for a larger class of problems to be solved, as well as allowing for the use of gradient descent based learning rules \cite{Mangini_2020, mangini2023variational}. Moreover, a learning algorithm using the framework of VQAs has been proposed as a method of identifying the optimal weight, and hence unitary $U_w$ \cite{Tacchino_2021, mangini2023variational}.
+
+Scalability of this quantum perceptron model is faced with the same challenges facing VQAs, as described in the Introduction \ref{introduction}. Nevertheless, a proof of concept quantum feed-forward neural network constructed with quantum perceptrons has been proposed \cite{Tacchino_2020}.
+
+Regardless of any drawbacks or refinement required, the quantum perceptron proposed in this paper has informed current work, and is likely to be a crucial foundation in constructing mature quantum perceptron-based FFNNs in the future.
+
+\appendix{\label{app:app}}
+
+\section{Proof of quantum perceptron circuit design for $N=4$ qubits as shown in Fig.~\ref{fig:Perceptroncircuit4}}\label{app:proof}
+
+We will provide an in depth discussion of the quantum circuit described in Fig.~\ref{fig:Perceptroncircuit4}. This is firstly to provide a proof of the design of the circuit. Secondly, as mentioned in \ref{varmodel}, encoding $|00 \cdots 0\rangle$ with a $-1$ factor is difficult due to the state unaffected by $Z$ and $C^pZ$ gates. Hence, this example provides the clear strategy for handling this problem. We will drop the notation $\bm{x}^{(j)}$ for $\bm{x}$ since we only consider one input vector.
+
+Fig.~\ref{fig:Perceptroncircuit4} provides the realisation of the quantum circuit design for the quantum perceptron with $N=4$ qubits, such that the weight and input vectors are as follows:
+
+
+\begin{equation} \label{eq:weightinput4}
+\begin{aligned}
+\bm{w} &= 
+\begin{pmatrix}
+1 \\
+1 \\
+-1 \\
+-1 \\
+-1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+\end{pmatrix}
+& ; \hspace{10pt}
+\bm{x} &= 
+\begin{pmatrix}
+-1 \\
+-1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+1 \\
+\end{pmatrix}.
+\end{aligned}
+\end{equation}
+
+Standard computation of the scalar product, noting the normalisation factor $n$, returns $\frac{1}{n} (\bm{x} \cdot \bm{w}) = c_{n-1} = \frac{6}{16}$, such that $|c_{n-1}|^2 \approx 0.234$. We demonstrate this result is achieved by the quantum circuit design in Fig.~\ref{fig:Perceptroncircuit4}.
+
+As described, we will be encoding on to $N=4$ qubits with one ancillary qubit. Firstly, as part of $U_x$, we implement a $H^{\otimes N}$ to the initial state of $|0000 \rangle$, producing the superposition of computational basis states as in Eq.~\ref{eq:compbasis}.
+
+Next, in order to encode $\bm{x}$ into the quantum circuit, we employ use of the HSGS procedure, realised in the circuit by the use of $Z$ and $C^p Z$ gates. The $Z$ and $C^pZ$ gates operating on the qubits $|q_1 \rangle$, $|q_2 \rangle$, and $|q_3 \rangle$ produce the result
+\begin{equation} \label{eq:negativeinput}
+\begin{split}
+| \psi _ 0 \rangle \longrightarrow \frac{1}{\sqrt{16}} \left( \sum_{i=0}^{1} |i \rangle  - \sum_{i=2}^{n-1} |i \rangle \right) = -|\psi_{x} \rangle .
+\end{split}
+\end{equation}
+
+Having successfully implemented the $U_x$ unitary, it is now the task of implementing the $U_w$ unitary. It can be seen that the series of $Z$ and $C^pZ$ gates in $U_w$ in Fig.~\ref{fig:Perceptroncircuit4}, chosen as a result of the HSGS algorithm, transform the state $| \psi_w \rangle$ to $|\psi_0 \rangle$ in accordance with Eq.~\ref{eq:weightunitary}. Operation with $H^{\otimes N}$ and $X^{\otimes N}$ will realise the full effect on $| \psi_w \rangle$ as required in Eq.~\ref{eq:weightunitary}. Therefore, implementing these gates on the state $- |\psi_x \rangle$ has the effect
+\begin{equation} \label{eq:appendixweight}
+\begin{split}
+-|\psi_{x} \rangle \longrightarrow \frac{1}{\sqrt{16}} \left( \sum_{i=0}^{4} |i \rangle - \sum_{i=5}^{n-1} |i \rangle \right) .
+\end{split}
+\end{equation}
+
+We are now left with implementation of the $H^{\otimes N}$ and $X ^{\otimes N}$ gates to complete $U_w$. The direct proof is computational exhaustive, and unnecessary for the purpose of this work. Instead, we focus on the qubit state $|1111 \rangle$. After applying $H^{\otimes N}$, we find the coefficient of the $|0000 \rangle$ state to be $-\frac{6}{16}$. Hence, by applying $X ^{\otimes N}$, we are left with the state $-\frac{6}{16} |1111 \rangle$. Using Eq.~\ref{eq:ancillary}, and by considering the ancillary qubit, we are left with the state
+\begin{equation} \label{eq:finalstate}
+\begin{split}
+|\phi_{x,w} \rangle \otimes |a \rangle = \sum_{i=0}^{n-2} c_i |i \rangle \otimes {|0 \rangle} -\frac{6}{16} |n-1 \rangle \otimes {|1\rangle} .
+\end{split}
+\end{equation}
+
+By measuring the ancillary qubit, we find the activation of our perceptron to therefore be $|-\frac{6}{16}|^2 \approx 0.234$, in direct agreement with the standard computation of the inner product. 
+
+This therefore completes the proof that the design of the circuit in Fig.~\ref{fig:Perceptroncircuit4} is correct, as it successfully computes the scalar product and finds the correct activation of the quantum perceptron.
+
+In this example, we were tasked with adding a factor of $-1$ to the qubit state $|0000 \rangle$. The quantum circuit designed in section \ref{quantum perceptron} and implemented in this example is incapable of directly adding this factor due to the nature of the $Z$ and $C^pZ$ gates. Hence, in this example, the workaround was finding $-|\psi_{x} \rangle$ in Eq.~\ref{eq:negativeinput}, as opposed to $|\psi_{x} \rangle$ as described in Eq.~\ref{eq:firstunitary}, which in turn was used to find the coefficient $c_{n-1} = -\frac{6}{16}$, of opposite parity to the standard computation. However, since only the square of this coefficient is of importance, the correct activation was found.
+
+\bibliography{QP}
+
+\section*{Statement of generative AI}
+ChatGPT was used to provide a summary of the current state of research in the field of quantum computing, which helped to identify where the most promising strands of research lie. It was also used as a way of solving errors in the software, LaTeX, encountered in the writing process. Validity was evaluated by comparing the information provided by ChatGPT with the equivalent research found after its use.
+
+\newpage
+
+\onecolumngrid
+\section*{Lay summary}
+
+The 20th century saw the shift from mechanical to electronic computers. Significant progress has been made to refine these computer systems, in an effort to improve computational power and efficiency. There are a large class of problems that we want computers to solve, some of which may be done sub-optimally. As a result, there has been extensive research into developing new computing paradigms to solve certain classes of problems faster than in classical computing systems. This led to the advent of artificial neural networks, a novel computing paradigm designed to mimic the learning process of the brain. Artificial neural networks are used extensively in modern computing, most notably in generative artificial intelligence programs which can be found in all the corners of the internet. Quantum computing is another computing paradigm that promises to solve certain problems more efficiently than in classical systems. This paper discusses the research in combining these two computing paradigms, known as quantum neural networks, by considering the fundamental unit with which more complex and powerful models will be developed from. Continual development of quantum computing and its ancillary disciplines could rival classical computer systems, possibly paving way for a new model of computation.
+
+\end{document}
